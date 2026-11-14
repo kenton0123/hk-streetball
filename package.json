@@ -1,0 +1,14 @@
+{
+  "name": "hk-streetball-teammate-finder",
+  "version": "1.0.0",
+  "description": "AIDM7450 group project — 街場搵隊友（18 區地圖 + 開波活動，Express + MongoDB）",
+  "private": true,
+  "scripts": {
+    "start": "node server.js",
+    "seed": "node tools/seed-demo.js"
+  },
+  "dependencies": {
+    "express": "^5.3.0",
+    "mongodb": "^7.8.0"
+  }
+}

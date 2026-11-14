@@ -1,0 +1,7 @@
+node_modules/
+.env
+*.log
+# 本地原始資料與課程交付檔（部署唔需要，亦唔應該上傳到 git 主機）
+hksar_18_district_boundary.json
+hksar_18_district_boundary.svg
+HK_Streetball_Handoff/
