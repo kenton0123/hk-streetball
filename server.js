@@ -544,8 +544,12 @@ async function createGame(req, res) {
   let starts, ends;
   if (b.creation_intent === "now") {
     starts = now;                                        // C01：now 嘅開始時間由服務端決定
-    ends = b.ends_at ? new Date(b.ends_at) : new Date(now.getTime() + 90 * 60000);
-    if (!(ends > starts)) fields.ends_at = "結束要晚於開始";
+    // 04 話本版唔跨午夜，而 now 嘅 ends_at 係服務端算嘅（客端冇傳）：預設 90 分鐘要 clamp 喺香港日界之內，
+    // 否則 23:00–23:59 發布會被自己條規則否決（同 seed-demo 嘅 nowWindow 用同一條數）
+    const dayEnd = Math.floor((+now + HK_MS) / DAY_MS) * DAY_MS - HK_MS + DAY_MS - 5 * 60000;
+    ends = b.ends_at ? new Date(b.ends_at) : new Date(Math.min(now.getTime() + 90 * 60000, dayEnd));
+    if (!(ends > starts)) fields.ends_at = b.ends_at ? "結束要晚於開始"
+      : "香港時間今日差唔多到午夜，即刻開波會跨日；請改用預先約波";
     else if (hkDate(starts) !== hkDate(ends)) fields.ends_at = "本版唔跨午夜（04）";
   } else {
     starts = new Date(b.starts_at); ends = new Date(b.ends_at);
