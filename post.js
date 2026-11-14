@@ -99,10 +99,26 @@ async function boot() {
     o.textContent = `${x.zh} ${x.en}`;
     sel.appendChild(o);
   }
-  const fromMap = new URLSearchParams(location.search).get("code");
+  const params = new URLSearchParams(location.search);
+  const fromMap = params.get("code");
   if (fromMap && DISTRICTS.some((x) => x.code === fromMap)) sel.value = fromMap;
+  // 由球場面板嘅兩個按鈕入嚟：?court=ID&intent=now|planned —— 區同場地都預填好，唔使用戶再答一次「喺邊」（WF05 一頁分段）
+  const fromCourt = params.get("court");
+  const deep = fromCourt ? COURTS.find((x) => x.id === fromCourt) : null;
+  if (deep) sel.value = deep.code;
+  const intent = params.get("intent");
+  if (intent === "now" || intent === "planned") {
+    document.querySelector('input[name="intent"][value="' + intent + '"]').checked = true;
+  }
   sel.addEventListener("change", () => { markDirty(); fillCourts(); });
   fillCourts();
+  if (deep) {
+    $("fCourt").value = deep.id;
+    if ($("fCourt").value !== deep.id) {
+      $("courtNote").textContent = "呢個場地無有效座標，唔准發布（D02）；請由地圖面板另揀場地。";
+      $("fCourt").disabled = true;
+    } else { showAck(); preview(); }
+  }
   setIntent();
 }
 

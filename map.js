@@ -62,8 +62,10 @@ async function boot() {
   for (const x of COURTS) courtById.set(x.id, x);
   for (const x of DISTRICTS) districtByCode.set(x.code, x);
   await refreshGames();
+  await loadChart();
   renderWhere();
   focusFromUrl();
+  openCourtFromUrl();
   askLocation();
 }
 
@@ -90,6 +92,11 @@ function drawCourts(code) {
     dot.setAttribute("r", code ? "6" : "3.4");
     const t = document.createElementNS("http://www.w3.org/2000/svg", "title");
     t.textContent = `${c.zh} ${c.en || ""} — ${c.addr || "無地址"}｜球場數原文：${c.n_raw ?? "未知"}｜${c.hours ?? "無時間資料"}`;
+    // WF02：地圖有清單替代之外，圓點本身都要用键盘到（撳入就開球場面板）
+    g.setAttribute("tabindex", "0");
+    g.setAttribute("role", "button");
+    g.setAttribute("aria-label", `${c.zh} ${c.en || ""}，${districtName(c.code)}，撳入睇球場面板`);
+    if (c.id === currentCourt) g.classList.add("sel");
     g.append(dot, t);
     G_COURTS.appendChild(g);
   }
@@ -138,6 +145,240 @@ function districtName(code) {
   const d = districtByCode.get(code);
   return d ? d.zh + " " + d.en : code;
 }
+
+// ---- V03：十八區長條圖 ----
+// 10 號文件：圖表係「全收錄資料概覽」，只喺開頁撱一次，唔随時間／地區／場地篩選重算；
+// 數值永遠用文字直接俾出（唔靠長度估），另備數值表格替代版。
+let STATS = [];
+
+async function loadChart() {
+  const box = document.getElementById("chartBox");
+  const r = await api("/api/stats/districts");
+  if (!r.j || !r.j.data) { box.hidden = true; return; }   // 攞唔到就唔画假圖
+  STATS = r.j.data;
+  renderChart();
+}
+
+function renderChart() {
+  const max = Math.max(1, ...STATS.map((d) => d.records));
+  document.getElementById("chartBars").innerHTML = STATS.map((d) => `
+    <li><button type="button" class="chartRow" data-code="${d.code}" aria-pressed="false">
+      <span class="chartName">${esc(d.zh)}</span>
+      <span class="barTrack" aria-hidden="true"><span class="barFill" style="width:${(d.records / max * 100).toFixed(1)}%"></span></span>
+      <span class="chartNum">${d.records} 筆</span>
+      <span class="chartSub">可定位 ${d.locatable}｜待核實 ${d.needs_review}</span>
+      <span class="chartMark"></span>
+    </button></li>`).join("");
+  document.querySelector("#chartTable tbody").innerHTML = STATS.map((d) =>
+    `<tr data-code="${d.code}"><th scope="row">${esc(d.zh)} ${esc(d.en)}</th><td>${d.records}</td><td>${d.locatable}</td><td>${d.needs_review}</td></tr>`).join("");
+  document.getElementById("chartPick").innerHTML =
+    '<option value="">（全港）</option>' + DISTRICTS.map((d) => `<option value="${d.code}">${esc(d.zh)} ${esc(d.en)}</option>`).join("");
+  const zero = STATS.filter((d) => d.records === 0).map((d) => d.zh);
+  const missing = STATS.filter((d) => d.needs_review > 0).map((d) => `${d.zh} ${d.needs_review}`);
+  document.getElementById("chartSource").textContent =
+    `資料來源：${META.source_dataset || "康文署籃球場資料"}｜共 ${STATS.length} 個區、${META.courts_total} 筆紀錄（可定位 ${META.courts_locatable}、待核實 ${META.courts_without_coords}）。` +
+    "「筆數」按原始資料紀錄計算，同一場地可能有重複，本版未做人手去重，所以唔等同場地數。";
+  document.getElementById("chartUnassigned").textContent =
+    (zero.length ? "無收錄紀錄嘅區：" + zero.join("、") + "。" : "十八區全部都有收錄紀錄。") +
+    (missing.length ? " 含待核實紀錄（無有效座標、唔喺地圖上）：" + missing.join("、") + "。" : "");
+  syncChart();
+}
+
+// 選區由地圖、定位對話框或圖表邊度改都一樣：條圖高亮、下拉、表格三處同步
+function syncChart() {
+  if (!STATS.length) return;
+  document.querySelectorAll("#chartBars .chartRow").forEach((b) => {
+    const on = b.dataset.code === currentCode;
+    b.setAttribute("aria-pressed", on ? "true" : "false");
+    b.querySelector(".chartMark").textContent = on ? "（已選）" : "";
+  });
+  document.querySelectorAll("#chartTable tbody tr").forEach((tr) =>
+    tr.classList.toggle("sel", tr.dataset.code === currentCode));
+  const pick = document.getElementById("chartPick");
+  if (pick.querySelector("option")) pick.value = currentCode || "";
+  document.getElementById("chartClear").disabled = !currentCode;
+}
+
+document.getElementById("chartBars").addEventListener("click", (e) => {
+  const btn = e.target.closest(".chartRow");
+  if (btn) select(btn.dataset.code);
+});
+document.getElementById("chartPick").addEventListener("change", (e) => {
+  const v = e.target.value;
+  // （全港）= 清除；揀返同一區則唔好當「再撳一次」而取消選區
+  if (v === "") select(null); else if (v !== currentCode) select(v); else syncChart();
+});
+document.getElementById("chartClear").addEventListener("click", () => select(null));
+document.getElementById("chartMode").addEventListener("click", (e) => {
+  const useTable = document.getElementById("chartTable").hidden;
+  document.getElementById("chartTable").hidden = !useTable;
+  document.getElementById("chartBars").hidden = useTable;
+  e.currentTarget.setAttribute("aria-pressed", useTable ? "true" : "false");
+  e.currentTarget.textContent = useTable ? "改回長條圖" : "改用數值表格";
+});
+
+// ---- WF03：球場面板（06 號文件）----
+// 面板係地圖圓點嘅替代視圖：三個分頁 = 球場資料｜開波活動｜街場指南（通用內容，唔寫成該場專屬規矩）
+let panelCourt = null;
+let PANEL_GAMES = [], panelFetchFailed = false;
+const CP_TABS = ["info", "games", "guide"];
+const FLAG_ZH = {
+  possible_no_lighting: "來源備註似乎寫明無射燈，請到場確認",
+  complex_court_count: (c) => `球場數原文係「${c.n_raw}」，未能換算成可用半場數`,
+  possible_operational_notice: "來源有一則可能影響使用嘅通知；舊通知唔代表而家關閉，日期要自行核實",
+  duplicate_source_id: "來源編號重複，呢個可能係另一個獨立場地",
+  missing_source_id: "來源缺編號，只能以本站記錄 ID 追溯",
+  invalid_coordinates: "座標格式或範圍唔合，唔畫喺地圖、亦唔可發布",
+};
+const flagText = (f, c) => esc(typeof FLAG_ZH[f] === "function" ? FLAG_ZH[f](c) : (FLAG_ZH[f] || f));
+
+// 未知唔等於 0、唔等於「冇」（D05、V06）
+function courtUnknowns(c) {
+  const items = [];
+  if (c.lighting === "unknown") items.push("照明資料未知（唔係「冇燈」）");
+  if (c.cover === "unknown") items.push("有蓋與否未知");
+  if (c.suit === "unverified") items.push("適合打半場與否未經人工核實");
+  if (c.oper === "unverified") items.push("營運狀態未經人工核實");
+  for (const f of c.flags || []) items.push(typeof FLAG_ZH[f] === "function" ? FLAG_ZH[f](c) : (FLAG_ZH[f] || f));
+  return items;
+}
+
+// 發布資格（04）：無效座標／已核實關閉或不適用 → 阻擋；其餘待核實 → 提醒
+function panelEligibility(c) {
+  if (c.lng === null || c.lat === null) return { blocked: "呢個場地無有效座標，唔可以喺度發布活動（D02）；「開波活動」分頁仍然可以睇紀錄。" };
+  if (c.oper === "closed" || c.suit === "not_suitable") return { blocked: "呢個場地已核實為關閉或不適用，唔准發布（D07）。" };
+  const unknown = courtUnknowns(c);
+  return unknown.length ? { warn: "場地資料有未核實之處：" + unknown.join("；") + "。發布時會要求你確認已閱讀提醒（D08）。" } : {};
+}
+
+function courtFactsHtml(c) {
+  const row = (k, v) => `<tr><th scope="row">${k}</th><td>${v}</td></tr>`;
+  const calc = c.n_num === null || c.n_num === undefined ? "未能換算" : `可換算 ${c.n_num} 個半場`;
+  return `<table class="courtFacts"><tbody>
+    ${row("英文名", esc(c.en || "無"))}
+    ${row("地址", esc(c.addr || "無"))}
+    ${row("原文時間", esc(c.hours || "無"))}
+    ${row("球場數（原文）", esc(c.n_raw ?? "未知") + `（${calc}）`)}
+    ${row("照明", c.lighting === "unknown" ? "未知（唔等於冇燈）" : esc(c.lighting))}
+    ${row("有蓋", c.cover === "unknown" ? "未知（唔等於有蓋或無蓋）" : esc(c.cover))}
+    ${row("適合打半場", c.suit === "unverified" ? "未經人工核實" : esc(c.suit))}
+    ${row("營運狀態", c.oper === "unverified" ? "未經人工核實" : esc(c.oper))}
+    ${row("座標", c.lng === null ? "待核實（無有效座標，唔喺地圖上）" : "格式及範圍通過（仍未經人工核實）")}
+    ${row("來源", `<a href="${esc(c.src)}" target="_blank" rel="noopener noreferrer">康文署設施資料</a>（${esc(c.proc || "未知")} 處理；來源行 ${esc(String(c.row ?? "無"))}）`)}
+  </tbody></table>
+  <p class="fine">以上全部係官方設施紀錄，唔係現場即時情況；設施欄位空值一律顯示「未知」，唔假填 0 或「有」。</p>`;
+}
+
+function renderPanelGames() {
+  const box = document.getElementById("cpp-games");
+  if (panelFetchFailed) { box.innerHTML = `<p class="empty">撱唔到呢個場地嘅活動：server 可能未行，稍後自動重試。</p>`; return; }
+  if (!PANEL_GAMES.length) {
+    box.innerHTML = `<p class="empty">呢個場地暫無活動回報（唔代表現場冇人）。</p>`;
+    return;
+  }
+  box.innerHTML = `<p class="meta">呢個場地目前有 ${PANEL_GAMES.length} 個活動仍喺招募／已滿／進行中（睇全部時間，跟主頁嘅篩選無關）：</p>
+    <ul class="panelGames">` + PANEL_GAMES.map((g) => `<li>
+      <span class="badge s-${g.status}">${STATUS_ZH[g.status] || g.status}</span>
+      ${esc(g.hk_date)} ${esc(g.hk_time)}–${esc(g.hk_end)}｜${esc(g.format)}｜尚缺 <b>${g.remaining}</b> 人
+      ${g.is_demo ? '<span class="badge demo">示範資料</span>' : ""}
+    </li>`).join("") + `</ul>
+    <p class="fine">加入同管理按鈕喺下面嘅活動卡片（列表已過濾做呢個場地）。</p>`;
+}
+
+async function fetchPanelGames(id) {
+  const q = new URLSearchParams({ court_id: id, time_filter: "all", status: "recruiting,full,started" });
+  const r = await api("/api/games?" + q);
+  panelFetchFailed = !r.j || Boolean(r.j.error);
+  PANEL_GAMES = panelFetchFailed ? [] : r.j.data;
+  renderPanelGames();
+}
+
+function renderCpActions(c) {
+  const el = document.getElementById("cpActions");
+  const warn = document.getElementById("cpWarn");
+  const intent = document.querySelector('input[name="cpIntent"]:checked').value;
+  const e = panelEligibility(c);
+  const href = (i) => "post.html?court=" + encodeURIComponent(c.id) + "&intent=" + i;
+  if (e.blocked) {
+    el.innerHTML = `<span class="meta">呢個場地唔可發布活動</span>`;
+    warn.textContent = e.blocked + "　" + GUIDE.phrases.notReservation;
+  } else {
+    // 06 WF03：揗「預先約波」時兩個按鈕交換主次，唔轉走用戶原本睌住嘅主按鈕
+    const primary = intent === "now" ? "now" : "planned";
+    el.innerHTML =
+      `<a class="btn${primary === "now" ? " primary" : ""}" href="${href("now")}">喺呢度搵人開波</a>` +
+      `<a class="btn${primary === "planned" ? " primary" : ""}" href="${href("planned")}">預先約波</a>`;
+    warn.textContent = (e.warn ? e.warn + "　" : "") + GUIDE.phrases.notReservation;
+  }
+}
+
+function selectCpTab(id, moveFocus) {
+  if (!CP_TABS.includes(id)) id = "info";
+  for (const key of CP_TABS) {
+    const btn = document.getElementById("cpt-" + key);
+    btn.setAttribute("aria-selected", key === id ? "true" : "false");
+    btn.tabIndex = key === id ? 0 : -1;
+    document.getElementById("cpp-" + key).hidden = key !== id;
+  }
+  if (moveFocus) document.getElementById("cpt-" + id).focus();
+}
+
+function openCourtPanel(id) {
+  const c = courtById.get(id);
+  if (!c) return;
+  panelCourt = id;
+  document.getElementById("cpTitle").textContent = c.zh + "｜" + districtName(c.code);
+  document.getElementById("cpAddr").textContent = summary(c.code) + "｜呢個場地：" + (c.addr || "無地址");
+  document.getElementById("cpBadges").innerHTML =
+    (c.lng === null ? '<span class="badge warn">位置待核實</span>' : "") +
+    (courtUnknowns(c).length ? '<span class="badge warn">資料未核實</span>' : "") +
+    '<span class="badge">官方設施資料</span>';
+  document.getElementById("cpp-info").innerHTML = courtFactsHtml(c);
+  document.getElementById("cpp-guide").innerHTML =
+    `<p class="meta">以下係全港通用嘅街場參考（唔係呢個場地專屬規矩；現場安排要先問）：</p>` +
+    guideSectionHtml(GUIDE.tabs[0]) + guideSectionHtml(GUIDE.tabs[2]) +
+    `<p class="act"><a class="btn" href="guide.html?court=${encodeURIComponent(c.id)}">閱讀完整指南</a></p>`;
+  renderCpActions(c);
+  document.getElementById("courtPanel").hidden = false;
+  selectCpTab("info", false);
+  fetchPanelGames(id);
+}
+
+function closeCourtPanel() {
+  panelCourt = null;
+  document.getElementById("courtPanel").hidden = true;
+}
+
+function onCourtPick(id) {
+  if (currentCourt === id) { currentCourt = null; closeCourtPanel(); explain(""); }
+  else {
+    currentCourt = id;
+    openCourtPanel(id);
+    explain(`球場面板：${(courtById.get(id) || {}).zh || id}（再撳同一個圓點或「返回地圖」收埋）。`);
+  }
+  refreshGames();
+}
+
+document.getElementById("cpClose").addEventListener("click", () => {
+  currentCourt = null;
+  closeCourtPanel();
+  explain("");
+  refreshGames();
+});
+document.querySelectorAll('input[name="cpIntent"]').forEach((r) =>
+  r.addEventListener("change", () => { if (panelCourt) renderCpActions(courtById.get(panelCourt)); }));
+document.getElementById("cpTabs").addEventListener("click", (e) => {
+  const btn = e.target.closest(".tab");
+  if (btn) selectCpTab(btn.id.slice(4), true);
+});
+// 分頁用键盘行到（同指南頁一套 WAI-ARIA tab pattern）
+document.getElementById("cpTabs").addEventListener("keydown", (e) => {
+  const cur = CP_TABS.indexOf(CP_TABS.find((k) => document.getElementById("cpt-" + k).getAttribute("aria-selected") === "true"));
+  const next = { ArrowRight: (cur + 1) % CP_TABS.length, ArrowLeft: (cur + CP_TABS.length - 1) % CP_TABS.length, Home: 0, End: CP_TABS.length - 1 }[e.key];
+  if (next === undefined) return;
+  e.preventDefault();
+  selectCpTab(CP_TABS[next], true);
+});
 
 // ---- 活動列表 ----
 const STATUS_ZH = {
@@ -342,6 +583,20 @@ async function focusFromUrl() {
   explain(`你啱啱發布嘅活動已經上線（${id}）。管理按鈕喺張卡入面。`, true);
 }
 
+// 由指南頁「返回球場」返嚟會帶 ?court=ID：直接開返該場地嘅面板（WF03）
+async function openCourtFromUrl() {
+  const id = new URLSearchParams(location.search).get("court");
+  if (!id) return;
+  if (!courtById.has(id)) { explain(`搵唔到場地 ${id}：可能資料已重載，請喺地圖重新拾場。`); return; }
+  const c = courtById.get(id);
+  if (c.code !== currentCode) select(c.code);
+  currentCourt = id;
+  openCourtPanel(id);
+  explain(`已打開「${c.zh}」嘅球場面板。`, true);
+  await refreshGames();
+  document.getElementById("courtPanel").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
 // 「我會去」用原生 <dialog>，唔使另開一頁（WF04）
 const joinDlg = document.getElementById("joinDlg");
 const joinHint = document.getElementById("joinHint");
@@ -392,7 +647,9 @@ function select(code) {
     zoomTo(code);
   }
   currentCourt = null;
+  closeCourtPanel();          // 換區就收埋面板，否則面板會讲住舊區嘅場地
   renderWhere();
+  syncChart();
   document.getElementById("btnReset").disabled = !currentCode;
   refreshGames();
 }
@@ -402,11 +659,14 @@ svg.querySelectorAll("#districts path").forEach((path) => {
 });
 G_COURTS.addEventListener("click", (e) => {
   const g = e.target.closest(".court");
+  if (g) onCourtPick(g.dataset.court);
+});
+G_COURTS.addEventListener("keydown", (e) => {
+  if (e.key !== "Enter" && e.key !== " ") return;
+  const g = e.target.closest(".court");
   if (!g) return;
-  currentCourt = currentCourt === g.dataset.court ? null : g.dataset.court;
-  const c = courtById.get(g.dataset.court);
-  explain(currentCourt ? `只列 ${c.zh} 嘅活動（再撳一次取消）。` : "");
-  refreshGames();
+  e.preventDefault();
+  onCourtPick(g.dataset.court);
 });
 document.getElementById("btnReset").addEventListener("click", () => select(null));
 document.getElementById("btnLabels").addEventListener("click", (e) => {
@@ -474,6 +734,10 @@ document.getElementById("geoGo").addEventListener("click", () => {
 });
 
 // 05：活動頁可見期間約 30 秒輪詢，隱藏就暫停（唔係即時串流，失敗保留上次時間）
-setInterval(() => { if (!document.hidden && !joinDlg.open && !document.getElementById("geoDlg").open) refreshGames(); }, 30000);
+setInterval(() => {
+  if (document.hidden || joinDlg.open || document.getElementById("geoDlg").open) return;
+  refreshGames();
+  if (panelCourt) fetchPanelGames(panelCourt);   // 面板嘅「開波活動」分頁用同一個輪詢節奏
+}, 30000);
 
 boot();

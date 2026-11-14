@@ -13,6 +13,7 @@
     <nav>
       <a href="index.html" aria-current="page">地圖搵場</a>
       <a href="post.html">發起活動</a>
+      <a href="guide.html">街場指南</a>
     </nav>
   </header>
 
@@ -85,6 +86,51 @@
 </g>
 </svg><!--MAP:END-->
 
+    <!-- V03：十八區長條圖（10 號文件）。可折疊但折疊後內容仍完整；圖表恒為全資料集，唔随篩選重算 -->
+    <details id="chartBox">
+      <summary>十八區圖表 <span aria-hidden="true">▾</span></summary>
+      <h3>各區收錄紀錄數（未完成去重）</h3>
+      <p class="fine" id="chartSource"></p>
+      <p class="chartTools">
+        <label for="chartPick">選區：</label>
+        <select id="chartPick"><option value="">（全港）</option></select>
+        <button type="button" id="chartClear">清除選區</button>
+        <button type="button" id="chartMode" aria-pressed="false">改用數值表格</button>
+      </p>
+      <ul id="chartBars" class="chartBars"></ul>
+      <table id="chartTable" class="chartTable" hidden>
+        <caption>各區收錄紀錄數（未完成去重）：數值表格替代版</caption>
+        <thead><tr><th scope="col">地區</th><th scope="col">收錄紀錄數</th><th scope="col">可定位</th><th scope="col">待核實</th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <p class="fine" id="chartUnassigned"></p>
+    </details>
+
+    <!-- WF03：球場面板（06 號文件）。撳地圖圓點開，三個分頁：球場資料｜開波活動｜街場指南 -->
+    <section id="courtPanel" class="panel" hidden aria-labelledby="cpTitle">
+      <p class="panelTop">
+        <button type="button" id="cpClose">← 返回地圖</button>
+        <span class="tags" id="cpBadges"></span>
+      </p>
+      <h3 id="cpTitle"></h3>
+      <p class="meta" id="cpAddr"></p>
+      <div class="tabbar" role="tablist" aria-label="球場面板分頁" id="cpTabs">
+        <button type="button" class="tab" role="tab" id="cpt-info" aria-controls="cpp-info">球場資料</button>
+        <button type="button" class="tab" role="tab" id="cpt-games" aria-controls="cpp-games">開波活動</button>
+        <button type="button" class="tab" role="tab" id="cpt-guide" aria-controls="cpp-guide">街場指南</button>
+      </div>
+      <div class="tabpanel" id="cpp-info" role="tabpanel" aria-labelledby="cpt-info"></div>
+      <div class="tabpanel" id="cpp-games" role="tabpanel" aria-labelledby="cpt-games" hidden></div>
+      <div class="tabpanel" id="cpp-guide" role="tabpanel" aria-labelledby="cpt-guide" hidden></div>
+      <p class="seg">
+        <span>發布意圖：</span>
+        <label><input type="radio" name="cpIntent" value="now" checked> 即刻開波</label>
+        <label><input type="radio" name="cpIntent" value="planned"> 預先約波</label>
+      </p>
+      <p class="act" id="cpActions"></p>
+      <p class="fine" id="cpWarn"></p>
+    </section>
+
     <h2>開波活動 <span lang="en">Pick-up games</span></h2>
     <p id="msgline" class="meta" role="status" aria-live="polite"></p>
     <p id="fetchNote" class="fine"></p>
@@ -125,6 +171,7 @@
     標示「示範資料」嘅活動只供測試，唔代表真實現場情況。本專案使用 AI 工具協助（GenAI disclosure），詳細使用範圍見報告。
   </footer>
 
+  <script src="guide-data.js"></script>
   <script src="map.js"></script>
 </body>
 </html>

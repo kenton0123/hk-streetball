@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>香港街場指南｜街場搵隊友</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>街場搵隊友 <span lang="en">Street Court Teammate Finder</span></h1>
+    <nav>
+      <a href="index.html">地圖搵場</a>
+      <a href="post.html">發起活動</a>
+      <a href="guide.html" aria-current="page">街場指南</a>
+    </nav>
+  </header>
+
+  <main>
+    <h2 id="gTitle">香港街場指南</h2>
+    <p class="lead" id="gLead"></p>
+    <p class="tip" id="gTip"></p>
+    <p class="fine" id="gScope"></p>
+
+    <div class="tabbar" role="tablist" aria-label="指南分頁" id="gTabs"></div>
+    <div id="gPanels"></div>
+
+    <p class="row">
+      <a class="btn" href="index.html">去地圖搵場</a>
+      <a class="btn" href="index.html" id="gBack">返回球場</a>
+    </p>
+  </main>
+
+  <footer>
+    指南內容為通用參考及產品玩法示例，待實地／內容審核，不是正式 FIBA 規則，亦不代表任何球場專屬規矩。
+    場地資料：香港政府康文署「籃球場」開放數據（data.gov.hk，2026-11-13 處理）。
+    地區邊界：Paulkit/HKMap（MIT 授權）。本專案使用 AI 工具協助（GenAI disclosure），詳細使用範圍見報告。
+  </footer>
+
+  <script src="guide-data.js"></script>
+  <script src="guide.js"></script>
+</body>
+</html>

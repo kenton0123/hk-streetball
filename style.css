@@ -202,6 +202,94 @@ dialog .fld input, dialog select {
 button:focus-visible, a:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-visible,
 #districts path:focus-visible, .court:focus-visible { outline: 3px solid #ffd27f; outline-offset: 2px; }
 
+/* ---- V03：十八區長條圖 ---- */
+#chartBox { border: 1px solid var(--line); border-radius: 10px; background: #121a21; padding: 0 14px 12px; margin: 14px 0 4px; }
+#chartBox > summary { cursor: pointer; padding: 10px 0; font-size: 14px; font-weight: 700; color: var(--org); list-style: none; }
+#chartBox > summary::-webkit-details-marker { display: none; }
+#chartBox[open] > summary { border-bottom: 1px solid var(--line); margin-bottom: 6px; }
+#chartBox h3 { font-size: 15px; margin: 10px 0 4px; }
+.chartTools { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 13px; color: var(--mut); margin: 8px 0; }
+.chartTools select { background: #18222b; color: var(--ink); border: 1px solid var(--line); border-radius: 7px; padding: 6px 8px; font: inherit; font-size: 13px; }
+.chartBars { list-style: none; margin: 0; padding: 0; }
+.chartBars li { margin: 0; }
+.chartRow {
+  display: grid;
+  grid-template-columns: 92px 1fr 62px 1fr;
+  gap: 8px;
+  align-items: center;
+  width: 100%;
+  text-align: left;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  padding: 5px 8px;
+  font-size: 12.5px;
+}
+.chartRow:hover { background: #18222b; }
+.chartRow[aria-pressed="true"] { border-color: var(--org); background: #1b2833; }
+.chartName { color: var(--ink); white-space: nowrap; }
+.barTrack { display: block; height: 14px; background: #0e161d; border: 1px solid var(--line); border-radius: 3px; overflow: hidden; }
+.barFill { display: block; height: 100%; background: #ec9440; }
+.chartNum { color: var(--org); font-weight: 700; font-variant-numeric: tabular-nums; }
+.chartSub { color: var(--mut); font-size: 11.5px; }
+.chartMark { color: var(--org); font-size: 11.5px; }
+.chartTable { width: 100%; border-collapse: collapse; font-size: 13px; }
+.chartTable caption { text-align: left; color: var(--mut); font-size: 12.5px; padding: 6px 0; }
+.chartTable th, .chartTable td { border-bottom: 1px solid var(--line); padding: 5px 8px; text-align: right; font-variant-numeric: tabular-nums; }
+.chartTable thead th { color: var(--mut); font-weight: 600; }
+.chartTable tbody th { text-align: left; color: var(--ink); font-weight: 400; }
+.chartTable tbody tr.sel th, .chartTable tbody tr.sel td { color: var(--org); font-weight: 700; }
+
+/* ---- 指南頁／分頁（06 WF07）---- */
+.lead { font-size: 15px; }
+.tip { font-size: 13.5px; color: var(--ink); background: #16222c; border-left: 3px solid var(--org); padding: 8px 12px; border-radius: 0 8px 8px 0; }
+.tabbar { display: flex; gap: 6px; flex-wrap: wrap; margin: 18px 0 0; border-bottom: 1px solid var(--line); }
+.tab { border-radius: 8px 8px 0 0; border-bottom: none; }
+.tab[aria-selected="true"] { background: var(--org); border-color: var(--org); color: #0b0f12; font-weight: 700; }
+.tabpanel { border: 1px solid var(--line); border-top: none; border-radius: 0 0 10px 10px; padding: 6px 16px 16px; background: #121a21; }
+.tabpanel h3 { font-size: 15px; margin: 16px 0 6px; color: var(--org); }
+.guideList, .guideSteps { margin: 0 0 10px; padding-left: 22px; font-size: 13.5px; }
+.guideList li, .guideSteps li { margin: 0 0 5px; }
+.guideCheck { list-style: none; margin: 0 0 10px; padding: 0; font-size: 13.5px; }
+.guideCheck li { margin: 0 0 6px; }
+.guideCheck label { display: flex; gap: 8px; align-items: flex-start; }
+.guideCheck input { width: 16px; height: 16px; accent-color: var(--org); margin-top: 2px; }
+main .row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 20px; }
+.btn { display: inline-block; padding: 8px 14px; border: 1px solid var(--line); border-radius: 7px; background: #18222b;
+  color: var(--ink); text-decoration: none; font-size: 13px; }
+.btn:hover { border-color: var(--org); color: var(--org); }
+/* 圖解：SVG 有 role=img + title + desc，呢邊只負責配色；文字說明喺 figcaption（圖解有文字） */
+.dgFig { margin: 14px 0; padding: 10px; border: 1px solid var(--line); border-radius: 10px; background: #0e161d; }
+.dg { width: 100%; height: auto; display: block; }
+.dgFig figcaption { font-size: 12.5px; color: var(--ink); margin-top: 6px; }
+.dgBox { fill: #1b2833; stroke: var(--line); }
+.dgArc { fill: none; stroke: #63737f; stroke-width: 3; }
+.dgKey { fill: #23323d; stroke: #63737f; }
+.dgA { fill: #ec9440; stroke: #0b1720; stroke-width: 2; }
+.dgB { fill: #5fb3dd; stroke: #0b1720; stroke-width: 2; }
+.dgNum { fill: #9fb0bd; font-size: 11px; }
+.dgTxt { fill: #e8eef3; font-size: 13px; font-weight: 600; }
+.dgBig { fill: #ffd27f; font-size: 15px; font-weight: 700; }
+.dgH { fill: #9fb0bd; font-size: 12px; }
+.dgArrow { fill: #63737f; }
+
+/* ---- WF03：球場面板 ---- */
+.panel { border: 1px solid var(--org); border-radius: 10px; background: #101c24; padding: 10px 16px 14px; margin: 14px 0; }
+.panelTop { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 4px 0 0; }
+.panel h3 { margin: 8px 0 2px; font-size: 16px; }
+.panel .tabbar { margin-top: 12px; }
+.panel .tabpanel { background: transparent; border: none; border-radius: 0; padding: 10px 0 4px; }
+.courtFacts { width: 100%; border-collapse: collapse; font-size: 13px; }
+.courtFacts th, .courtFacts td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.courtFacts th { color: var(--mut); font-weight: 600; white-space: nowrap; width: 1%; }
+.panelGames { margin: 0 0 8px; padding-left: 18px; font-size: 13px; }
+.panelGames li { margin: 0 0 6px; }
+.badge.warn { color: #ffd27f; border-color: #6b5a2f; }
+.btn.primary { background: var(--org); border-color: var(--org); color: #0b0f12; font-weight: 700; }
+p.seg { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; margin: 14px 0 6px; }
+p.seg label { display: inline-flex; gap: 6px; align-items: center; color: var(--ink); }
+.court.sel circle { fill: #fff; stroke: var(--org); stroke-width: 3; }
+
 footer {
   max-width: 1100px;
   margin: 0 auto;
@@ -215,4 +303,9 @@ footer a { color: #7fc6e8; }
 @media (max-width: 640px) {
   header h1 { font-size: 21px; }
   #where { margin-left: 0; width: 100%; }
+  /* V03：手機可折疊；條行改兩行式，數值仍然用文字顯示（唔靠長度） */
+  .chartRow { grid-template-columns: 1fr auto; row-gap: 2px; }
+  .chartRow .barTrack { grid-column: 1 / -1; }
+  .chartRow .chartSub, .chartRow .chartMark { grid-column: 1 / -1; }
+  .tabpanel { padding: 6px 12px 14px; }
 }
