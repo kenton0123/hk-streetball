@@ -721,7 +721,7 @@ function askLocation(manual) {
     (pos) => {
       const code = districtAt(pos.coords.longitude, pos.coords.latitude);
       if (code) { if (manual) explain(""); openGeoPrompt(code, pos.coords.accuracy); }   // 命中唔到（海面／唔喺香港）就唔彈
-      else if (manual) explain(`座標 ${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}（准 ${Math.round(pos.coords.accuracy)} 米）唔喺十八區內，請手動選區（L01）。`);
+      else if (manual) explain("定位成功但唔喺香港十八區範圍內（座標只喺你部機度計，唔會上傳），請手動選區（L01）。");
     },
     (err) => {
       if (!manual) return;
