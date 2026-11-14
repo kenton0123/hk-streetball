@@ -706,21 +706,34 @@ function openGeoPrompt(code, accuracy) {
   document.getElementById("geoDlg").showModal();
 }
 
-function askLocation() {
-  if (!navigator.geolocation) return;
-  // 每個分頁只問一次：發布完跳返主頁（?game=）嗰刻用戶要睇自己啱啱建嘅活動，唔好再彈攞住
-  if (sessionStorage.getItem("hkGeoAsked")) return;
-  if (new URLSearchParams(location.search).get("game")) return;
-  sessionStorage.setItem("hkGeoAsked", "1");
+function askLocation(manual) {
+  if (!navigator.geolocation) { if (manual) explain("呢個瀏覽器唔支援定位，請手動選區（L01）。"); return; }
+  // 每個分頁只自動問一次：發布完跳返主頁（?game=）嗰刻用戶要睇自己啱啱建嘅活動，唔好再彈攞住
+  // manual 係用戶自己撳「定位」（06 號 WF02 的 [定位] 入口），所以豁免呢條規則
+  if (!manual) {
+    if (sessionStorage.getItem("hkGeoAsked")) return;
+    if (new URLSearchParams(location.search).get("game")) return;
+    sessionStorage.setItem("hkGeoAsked", "1");
+  }
+  if (manual) explain("定位中…", true);
+  // timeout 20 秒：手機第一次鎖星往往超過 8 秒；開頁自動問嗰陣失敗仍然靜默
   navigator.geolocation.getCurrentPosition(
     (pos) => {
       const code = districtAt(pos.coords.longitude, pos.coords.latitude);
-      if (code) openGeoPrompt(code, pos.coords.accuracy);   // 命中唔到（海面／唔喺香港）就唔彈
+      if (code) { if (manual) explain(""); openGeoPrompt(code, pos.coords.accuracy); }   // 命中唔到（海面／唔喺香港）就唔彈
+      else if (manual) explain(`座標 ${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}（准 ${Math.round(pos.coords.accuracy)} 米）唔喺十八區內，請手動選區（L01）。`);
     },
-    () => { /* 拒絕、超時、度唔准 → 當普通開頁 */ },
-    { timeout: 8000, maximumAge: 600000 }
+    (err) => {
+      if (!manual) return;
+      explain(err.code === 1
+        ? "你拒絕咗瀏覽器授權，仍然可以手動選區或搜尋（L01）。"
+        : `定位失敗：代碼 ${err.code}（1=拒絕、2=度唔到、3=太慢），請手動選區（L01）。`);
+    },
+    { timeout: 20000, maximumAge: 600000 }
   );
 }
+
+document.getElementById("btnLocate").addEventListener("click", () => askLocation(true));
 
 document.getElementById("geoYes").addEventListener("click", () => {
   document.getElementById("geoDlg").close();
