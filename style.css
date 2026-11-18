@@ -309,3 +309,172 @@ footer a { color: #7fc6e8; }
   .chartRow .chartSub, .chartRow .chartMark { grid-column: 1 / -1; }
   .tabpanel { padding: 6px 12px 14px; }
 }
+
+/* ---- 兩個用途共用同一頁：?view=games（睇有咩波打）／?view=courts（街場地圖） ----
+   C.1 要求十八區圖表由「睇有咩波打」搬去「街場地圖」；D 再要求街場地圖分做兩個分頁：
+   Tab A 球場地圖（#mapWrap＋球場面板）｜Tab B Do you know…?（#knowBox 兩張圖） */
+body[data-view="games"] #cmTabs,
+body[data-view="games"] #knowBox { display: none; }
+body[data-view="courts"] #gamesHead,
+body[data-view="courts"] #fetchNote,
+body[data-view="courts"] #posts { display: none; }
+body[data-tab="know"] #mapWrap,
+body[data-tab="know"] #courtPanel { display: none; }
+.mapTabs { margin: 0 0 12px; }
+#knowBox h2 { margin: 4px 0 10px; font-size: 20px; }
+#knowBox h2 span { font-size: 13px; font-weight: 400; color: var(--mut); }
+#knowBox h3 { margin: 18px 0 2px; font-size: 16px; }
+
+/* ---- A：進站第一幕。四張大卡 2×2，背景就係街場地圖畫面 ---- */
+.landing {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(11, 23, 32, .74);
+  backdrop-filter: blur(3px);
+}
+.landing[hidden] { display: none; }   /* display:grid 會蓋過 [hidden]，要自己補返 */
+.landCard { width: min(700px, 100%); text-align: center; }
+.landTitle { margin: 0 0 4px; font-size: 32px; line-height: 1.25; }
+.landTitle span { display: block; font-size: 16px; font-weight: 400; color: var(--mut); }
+.landSub { margin: 0 0 18px; font-size: 14px; color: var(--mut); }
+.landGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.landBtn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 24px 12px 20px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: #18222b;
+  color: var(--ink);
+  font: inherit;
+  font-size: 18px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.landBtn:hover, .landBtn:focus-visible { border-color: var(--org); background: #1f2c37; }
+.landBtn svg { width: 54px; height: 54px; fill: none; stroke: var(--org); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.landBtn span { font-size: 12px; font-weight: 400; color: var(--mut); }
+
+@media (max-width: 560px) {
+  .landTitle { font-size: 25px; }
+  .landGrid { gap: 10px; }
+  .landBtn { padding: 16px 6px 14px; font-size: 15px; border-radius: 14px; }
+  .landBtn svg { width: 42px; height: 42px; }
+}
+
+/* ---- B：搵人打波四頁向導 ---- */
+.wizard .wpage { min-height: 250px; }
+.wtitle { margin: 0 0 14px; font-size: 17px; color: var(--org); }
+.wtitle span { font-size: 12.5px; color: var(--mut); font-weight: 400; }
+.wtitle:focus-visible { outline: 2px solid var(--org); outline-offset: 3px; }
+.wsub { margin: 18px 0 4px; font-size: 14px; }
+.wfoot { display: flex; align-items: center; gap: 10px; margin: 18px 0 0; }
+.wfoot #btnPrev { margin-right: auto; }   /* B.1：上一步固定喺左下角 */
+.wstep { color: var(--mut); font-size: 12.5px; }
+
+/* B.Page 2：兩張大卡（NOW 籃球／秒表） */
+.whenGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 0 0 14px; }
+.whenGrid[hidden] { display: none; }   /* display:grid 會蓋過 [hidden]，要自己補返 */
+.whenCard {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 4px;
+  padding: 20px 10px 16px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: #18222b;
+  color: var(--ink);
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.whenCard:hover, .whenCard.on { border-color: var(--org); background: #1f2c37; }
+.whenCard.on { box-shadow: 0 0 0 2px rgba(255, 139, 61, .35); }
+.whenCard input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.whenCard:has(input:focus-visible) { outline: 2px solid var(--org); outline-offset: 2px; }
+.whenCard svg { width: 60px; height: 60px; fill: none; stroke: var(--org); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.whenCard span { font-size: 12px; font-weight: 400; color: var(--mut); }
+.nowPlate { fill: #18222b; stroke: none; }
+.nowWord { fill: var(--org); stroke: none; font: 700 12px "Segoe UI", Arial, sans-serif; }
+
+/* D：球場面板底部嗰兩張大卡係 <a>（深連結去 post.html），唔係 label＋radio */
+a.whenCard { text-decoration: none; }
+a.whenCard:focus-visible { outline: 2px solid var(--org); outline-offset: 2px; }
+.cpGrid { margin: 16px 0 6px; }
+.cpGrid .whenCard { padding: 16px 10px 13px; font-size: 15px; }
+.cpGrid .whenCard svg { width: 46px; height: 46px; }
+
+@media (max-width: 560px) {
+  .whenCard { padding: 14px 6px 12px; font-size: 14px; border-radius: 13px; }
+  .whenCard svg { width: 46px; height: 46px; }
+  .wizard .wpage { min-height: 200px; }
+}
+
+/* ---- C.2：地圖框內嘅兩個掣 —— 左上「還原全港」、右上「定位」（十字準星 icon）---- */
+.mapWrap { position: relative; }
+.mapBtn {
+  position: absolute;
+  z-index: 5;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 11px;
+  font-size: 12.5px;
+  background: rgba(14, 22, 29, .88);
+  backdrop-filter: blur(2px);
+}
+.mapTL { top: 10px; left: 10px; }
+.mapTR { top: 10px; right: 10px; padding: 7px; }
+.mapTR svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.mapTR:hover svg { stroke: var(--org); }
+
+/* ---- C.3：撳區彈出嘅時間窗 overlay。分頁常駐喺頂，活動清單自己捲 ---- */
+#distDlg {
+  width: min(560px, 94vw);
+  max-height: 86vh;
+  display: flex;
+  flex-direction: column;
+  padding: 16px 18px;
+}
+#distDlg:not([open]) { display: none; }   /* display:flex 會蓋過瀏覽器嘅 dialog:not([open]){display:none}，關咗都會畫出一個空盒 */
+.winTabs {
+  position: sticky;
+  top: -16px;                 /* 抵銷 dialog 嘅上 padding，捲動時分頁先至真係黐住頂 */
+  z-index: 2;
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin: 0 -18px 4px;
+  padding: 6px 18px;
+  background: #121a21;
+  border-bottom: 1px solid var(--line);
+}
+.winTabs button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 6px 10px;
+  font-size: 13px;
+}
+.winTabs button .fine { margin: 0; font-size: 10.5px; color: var(--mut); }
+.winTabs button[aria-selected="true"] { background: var(--org); border-color: var(--org); color: #0b0f12; font-weight: 600; }
+.winTabs button[aria-selected="true"] .fine { color: #0b0f12; }
+.winGames { overflow-y: auto; display: grid; gap: 10px; padding: 10px 2px; }
+.winGames .card { margin: 0; }
+
+@media (max-width: 560px) {
+  .mapBtn { font-size: 11.5px; padding: 5px 9px; }
+  .mapTL { top: 6px; left: 6px; }
+  .mapTR { top: 6px; right: 6px; }
+  #distDlg { width: 96vw; max-height: 90vh; }
+}

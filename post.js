@@ -1,4 +1,4 @@
-// post.js —— 發起活動。呢度只做提示與預覽；最終規則一律由 server 驗證（04／05）
+// post.js —— 搵人打波（四頁向導）。呢度只做提示與預覽；最終規則一律由 server 驗證（04／05）
 const $ = (id) => document.getElementById(id);
 const TARGET = { "3v3": 6, "4v4": 8 };   // 只用於即時預覽，提交時唔會寄出去
 let COURTS = [], DISTRICTS = [], dirty = false;
@@ -11,7 +11,56 @@ function markDirty() { dirty = true; submitKey = null; }
 const esc = (s) => String(s).replace(/[&<>"]/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[m]));
 
 function court() { return COURTS.find((c) => c.id === $("fCourt").value) || null; }
+const currentIntent = () => {
+  const r = document.querySelector('input[name=intent]:checked');
+  return r ? r.value : null;
+};
+const presence = () => {
+  const r = document.querySelector('input[name=presence]:checked');
+  return r ? r.value : null;
+};
 
+// ---- 向導：一頁一步，揀完自動去下一頁（B.1）----
+let page = 1, advT = null;
+
+function goto(n) {
+  clearTimeout(advT);
+  page = Math.max(1, Math.min(4, n));
+  for (let i = 1; i <= 4; i++) $("p" + i).hidden = i !== page;
+  $("btnPrev").hidden = page === 1;                 // B.1：上一步只喺第 2–4 頁
+  $("btnSubmit").hidden = page !== 4;
+  $("wStep").textContent = `${page} / 4`;
+  if (page === 3) applyIntent();
+  if (page === 4) showVenue();
+  const head = $("p" + page).querySelector(".wtitle");
+  head.setAttribute("tabindex", "-1");
+  head.focus();                                      // U02：轉頁要將焦點帶去新頁，鍵盤用戶先唔會迷路
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+// 自動翻頁：每次改動都重新計時，俾用戶繼續填埋呢頁其他欄位（第 3 頁留空＝未知，唔可以逼填）
+function armAdvance(ms) {
+  clearTimeout(advT);
+  advT = setTimeout(() => { if (page < 4 && pageValid(page)) goto(page + 1); }, ms);
+}
+
+function plannedValid() {
+  const d = $("fDate").value, s = $("fStart").value, e = $("fEnd").value;
+  return Boolean(d && s && e && e > s);              // 同日、結束晚於開始（C02）
+}
+
+function pageValid(n) {
+  if (n === 1) { const sel = $("fCourt"); return Boolean(sel.value) && !sel.disabled; }
+  if (n === 2) { const i = currentIntent(); return i === "now" || (i === "planned" && plannedValid()); }
+  if (n === 3) {
+    if (currentIntent() !== "planned") return Boolean(presence());
+    const T = TARGET[$("fFormat").value], g = Number($("fGroup").value);
+    return Number.isInteger(g) && g >= 1 && g < T;
+  }
+  return true;
+}
+
+// ---- 第 1 頁 ----
 function fillCourts() {
   const sel = $("fCourt");
   sel.textContent = "";
@@ -24,62 +73,78 @@ function fillCourts() {
     sel.appendChild(o);
   }
   sel.disabled = ok.length === 0;
-  // V01：無座標嘅紀錄唔畫、唔可發布，但要喺摘要講清楚
+  // V01／D02：無座標嘅紀錄唔畫、唔可發布，但要講清楚（B 只要求删「可發布 X 個」呢句）
   const bad = list.filter((c) => c.lng === null);
   $("courtNote").textContent = ok.length === 0
     ? "呢個區暫時冇可發布嘅場地（全部紀錄都缺有效座標）。"
-    : `可發布 ${ok.length} 個` + (bad.length ? `；另有 ${bad.length} 筆無有效座標，唔列喺度亦唔准發布` : "");
-  showAck();
+    : (bad.length ? `另有 ${bad.length} 筆無有效座標，唔列喺度亦唔准發布（D02）。` : "");
+  showVenue();
   preview();
 }
 
-// D08：待核實資料要提醒，而且唔可以變成「已核實」
-function showAck() {
+// ---- 第 4 頁：場地資料只留地址 ----
+function showVenue() {
   const c = court();
-  const box = $("ackBox");
-  if (!c) { box.hidden = true; return; }
-  const items = [];
-  if (c.lighting === "unknown") items.push("照明資料未知（唔係「冇燈」）");
-  if (c.cover === "unknown") items.push("有蓋與否未知");
-  if (c.suit === "unverified") items.push("適合半場與否未經人工核實");
-  if (c.oper === "unverified") items.push("營運狀態未經人工核實");
-  if ((c.flags || []).includes("complex_court_count")) items.push(`球場數原文係「${c.n_raw}」，未能換算成可用半場數`);
-  if ((c.flags || []).includes("possible_no_lighting")) items.push("來源備註似乎寫明無射燈，請到場確認");
-  if ((c.flags || []).includes("possible_operational_notice")) items.push("來源有一則可能影響使用嘅通知，日期要自行核實");
-  if ((c.flags || []).includes("duplicate_source_id")) items.push("來源編號重複，呢個可能係另一個獨立場地");
-  box.hidden = items.length === 0;
-  $("ackText").innerHTML = "呢個場地嘅資料有以下未核實之處：<br>· " + items.map(esc).join("<br>· ") +
-    `<br>地址：${esc(c.addr || "無")}｜原文時間：${esc(c.hours || "無")}｜查詢電話：${esc(c.tel || "無")}`;
-  if (!items.length) $("fAck").checked = true;
+  $("venueAddr").textContent = c ? `地址：${c.addr || "（來源冇地址）"}` : "先喺第 1 頁揀場地。";
+  // 三行誠實字之一（D08）：保留一行細字講明未核實，唔列明每項、唔再強制剔確認
+  $("venueCaveat").textContent = c
+    ? "呢個場地嘅照明、有蓋、適合半場與營運狀態等資料未經人工核實，到場前請自行確認。"
+    : "";
 }
 
-function preview() {
-  const T = TARGET[$("fFormat").value];
-  const g = Math.max(1, Math.min(Number($("fGroup").value) || 1, T - 1));
-  $("pvTarget").textContent = T;
-  $("pvGroup").textContent = g;
-  $("pvNeed").textContent = Math.max(T - g, 0);
-  $("fGroup").max = T - 1;
-  $("fArrived").max = g;
-  const c = court();
-  const when = document.querySelector('input[name=intent]:checked').value === "now"
-    ? "即刻（伺服器決定開始時間）"
-    : `${$("fDate").value || "未填"} ${$("fStart").value || "?"}–${$("fEnd").value || "?"}（香港時間）`;
-  $("preview").textContent = c
-    ? `預覽：${c.zh}｜${when}｜${$("fFormat").value}｜缺 ${Math.max(T - g, 0)} 人`
-    : "預覽：先揀場地";
-}
-
-function setIntent() {
-  const now = document.querySelector('input[name=intent]:checked').value === "now";
-  $("plannedOnly").hidden = now;
+// ---- 第 2／3 頁：intent 決定顯示邊啲欄位 ----
+function applyIntent() {
+  const now = currentIntent() === "now";
+  $("plannedOnly").hidden = currentIntent() !== "planned";
   $("nowNote").hidden = !now;
-  if (!now) {
+  document.querySelectorAll(".whenCard").forEach((c) =>
+    c.classList.toggle("on", c.querySelector("input").checked));
+  if (currentIntent() === "planned") {
     const t = new Date(Date.now() + 8 * 3600e3).toISOString();   // 香港日時，先至啱 min 屬性
     if (!$("fDate").value) $("fDate").value = t.slice(0, 10);
     $("fDate").min = t.slice(0, 10);
   }
+  // B.3：即刻開波＝到場狀態＋玩法＋已經到咗幾個；預先約波＝玩法＋有幾多人會黎
+  $("presenceBox").hidden = !now;
+  $("arrivedBox").hidden = !now;
+  $("joiningBox").hidden = now;
+  $("fArrived").min = presence() === "at_court" ? "1" : "0";     // server：發起人已在場，到場人數唔可以係 0
   preview();
+}
+
+// ---- 人數：目標由玩法計，原有小組人數由 server 覆核（C03／C04）----
+// Round 1 第 3 頁喺「即刻開波」唔再問有幾多人會黎，所以原有小組人數由已到人數推算：
+//   我已經喺場 → 你本人已計入已到人數；我仲未到 → 你額外計一個
+function groupNumbers() {
+  const T = TARGET[$("fFormat").value];
+  if (currentIntent() === "planned") {
+    const raw = Number($("fGroup").value);
+    return { T, G: raw, A: null, presence: "not_yet" };   // 約波未到期：發布嗰刻你一定仲未到
+  }
+  const p = presence();
+  const rawA = $("fArrived").value;
+  const A = rawA === "" ? null : Number(rawA);
+  const G = p === "at_court" ? Math.max(A === null ? 1 : A, 1) : (A === null ? 0 : A) + 1;
+  return { T, G, A, presence: p };
+}
+
+function preview() {
+  const { T, G, A } = groupNumbers();
+  const g = Math.max(1, Math.min(Number.isFinite(G) ? G : 1, T - 1));
+  $("pvTarget").textContent = T;
+  $("pvGroup").textContent = g;
+  $("pvNeed").textContent = Math.max(T - g, 0);
+  $("fGroup").max = T - 1;
+  $("fArrived").max = T - 1;
+  const c = court();
+  const when = currentIntent() === "now"
+    ? "即刻（伺服器決定開始時間）"
+    : currentIntent() === "planned"
+      ? `${$("fDate").value || "未填"} ${$("fStart").value || "?"}–${$("fEnd").value || "?"}（香港時間）`
+      : "未揀";
+  $("preview").textContent = c
+    ? `預覽：${c.zh}｜${when}｜${$("fFormat").value}｜缺 ${Math.max(T - g, 0)} 人`
+    : "預覽：先揀場地";
 }
 
 async function boot() {
@@ -102,13 +167,13 @@ async function boot() {
   const params = new URLSearchParams(location.search);
   const fromMap = params.get("code");
   if (fromMap && DISTRICTS.some((x) => x.code === fromMap)) sel.value = fromMap;
-  // 由球場面板嘅兩個按鈕入嚟：?court=ID&intent=now|planned —— 區同場地都預填好，唔使用戶再答一次「喺邊」（WF05 一頁分段）
+  // 由球場面板嘅兩個大卡入嚟：?court=ID&intent=now|planned —— 區同場地都預填好（WF05、D 嘅快速開始）
   const fromCourt = params.get("court");
   const deep = fromCourt ? COURTS.find((x) => x.id === fromCourt) : null;
   if (deep) sel.value = deep.code;
   const intent = params.get("intent");
   if (intent === "now" || intent === "planned") {
-    document.querySelector('input[name="intent"][value="' + intent + '"]').checked = true;
+    document.querySelector(`input[name="intent"][value="${intent}"]`).checked = true;
   }
   sel.addEventListener("change", () => { markDirty(); fillCourts(); });
   fillCourts();
@@ -117,47 +182,69 @@ async function boot() {
     if ($("fCourt").value !== deep.id) {
       $("courtNote").textContent = "呢個場地無有效座標，唔准發布（D02）；請由地圖面板另揀場地。";
       $("fCourt").disabled = true;
-    } else { showAck(); preview(); }
+    } else { showVenue(); preview(); }
   }
-  setIntent();
+  applyIntent();
+  // 深連結帶 intent 入嚟：第 1 頁已預填場地，直接送去第 2 頁（有 intent 就送去第 3 頁）
+  goto(intent && pageValid(1) ? 3 : 1);
 }
 
-["fFormat", "fGroup", "fArrived", "fDate", "fStart", "fEnd"].forEach((id) =>
-  $(id).addEventListener("input", () => { markDirty(); preview(); }));
-document.querySelectorAll('input[name=intent]').forEach((r) => r.addEventListener("change", () => { markDirty(); setIntent(); }));
-document.querySelectorAll('input[name=presence]').forEach((r) => r.addEventListener("change", () => { markDirty(); preview(); }));
-["fNick", "fSkill", "fNotes", "fBeginner", "fAck"].forEach((id) => $(id).addEventListener("input", () => { markDirty(); }));
-$("fCourt").addEventListener("change", showAck);
+// ---- 事件 ----
+$("btnPrev").addEventListener("click", () => goto(page - 1));
+$("fCourt").addEventListener("change", () => { markDirty(); showVenue(); preview(); armAdvance(450); });
+document.querySelectorAll('input[name=intent]').forEach((r) => r.addEventListener("change", () => {
+  markDirty(); applyIntent();
+  armAdvance(r.value === "now" ? 400 : 700);   // 即刻開波冇嘢再填；約波要等日期時間填齊
+}));
+["fDate", "fStart", "fEnd"].forEach((id) => $(id).addEventListener("input", () => {
+  markDirty(); applyIntent(); armAdvance(700);
+}));
+document.querySelectorAll('input[name=presence]').forEach((r) => r.addEventListener("change", () => {
+  markDirty(); applyIntent(); armAdvance(1200);
+}));
+["fFormat", "fGroup", "fArrived"].forEach((id) => $(id).addEventListener("input", () => {
+  markDirty(); preview(); armAdvance(id === "fFormat" ? 1200 : 900);
+}));
+["fNick", "fSkill", "fNotes", "fBeginner"].forEach((id) => $(id).addEventListener("input", () => { markDirty(); }));
+
+// B.Page 2 嘅 bug fix：桌面版撳時間欄要真係彈出選擇器。桌面 Chrome 嘅 <input type=time> 淨係俾你逐格改，
+// 所以主動叫 showPicker()；手機版本來就會彈，唔支援或者冇用戶手勢就會 throw，catch 住當冇事
+["fStart", "fEnd"].forEach((id) => {
+  const el = $(id);
+  el.addEventListener("click", () => { try { el.showPicker(); } catch (e) { /* NotAllowedError／唔支援：照舊用原生行為 */ } });
+});
+
 window.addEventListener("beforeunload", (e) => { if (dirty) { e.preventDefault(); e.returnValue = ""; } });
 
 $("form").addEventListener("submit", async (e) => {
   e.preventDefault();
   const msg = $("msg");
-  const btn = e.target.querySelector("button[type=submit]");
-  const T = TARGET[$("fFormat").value];
-  const g = Number($("fGroup").value);
-  const arrivalRaw = $("fArrived").value;
+  const btn = $("btnSubmit");
+  const { T, G, A, presence: pres } = groupNumbers();
+  if (!Number.isInteger(G) || G < 1) { msg.textContent = "人數要係整數，最少 1 人。"; return; }
+  if (G >= T) { msg.textContent = `你哋已經有 ${G} 人（${$("fFormat").value} 目標 ${T} 人），唔使再搵人；請改玩法或者人數（C04）。`; return; }
+  if (A !== null && (!Number.isInteger(A) || A < 0 || A > G)) { msg.textContent = "已經到咗幾個要係 0 至你哋人數之間，或者留空＝未知。"; return; }
+  const nick = $("fNick").value.trim();
+  if (!nick) { msg.textContent = "要填暱稱（1–30 字）。"; return; }
+  if (currentIntent() === "planned" && !plannedValid()) { msg.textContent = "預先約波要揀日期，同埋結束時間要晚過開始時間。"; goto(2); return; }
+
   const body = {
     court_id: $("fCourt").value,
-    creation_intent: document.querySelector('input[name=intent]:checked').value,
+    creation_intent: currentIntent(),
     format: $("fFormat").value,
-    organizer_nickname: $("fNick").value.trim(),
-    organizer_presence: document.querySelector('input[name=presence]:checked').value,
-    original_group_size: g,
-    original_group_arrived: arrivalRaw === "" ? null : Number(arrivalRaw),
+    organizer_nickname: nick,
+    organizer_presence: pres,
+    original_group_size: G,
+    original_group_arrived: A,
     skill_level: $("fSkill").value,
     beginner_friendly: $("fBeginner").checked,
     notes: $("fNotes").value.trim() || null,
-    acknowledged_unverified_court: $("fAck").checked,
   };
-  if (body.creation_intent === "planned") {
+  if (currentIntent() === "planned") {
     const day = $("fDate").value;
-    body.starts_at = new Date(`${day}T${$("fStart").value || "19:30"}:00+08:00`).toISOString();
-    body.ends_at = new Date(`${day}T${$("fEnd").value || "21:30"}:00+08:00`).toISOString();
-    if (!day) { msg.textContent = "預先約波要揀日期。"; return; }
+    body.starts_at = new Date(`${day}T${$("fStart").value}:00+08:00`).toISOString();
+    body.ends_at = new Date(`${day}T${$("fEnd").value}:00+08:00`).toISOString();
   }
-  if (!body.organizer_nickname) { msg.textContent = "要填暱稱（1–30 字）。"; return; }
-  if (!Number.isInteger(g) || g < 1 || g >= T) { msg.textContent = `原有小組要係 1 至 ${T - 1} 人：發布時最少要缺 1 人。`; return; }
 
   btn.disabled = true;                       // C06：提交中防重按
   msg.textContent = "送出中…";

@@ -3,34 +3,57 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>發起開波 — 街場搵隊友</title>
+  <title>搵人打波｜齊人開波！Squad Up!</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <header>
-    <h1>發起半場活動 <span lang="en">Start a pick-up game</span></h1>
-    <p>發布唔等于預留球場：到场仍要跟隊及現場協調</p>
+    <h1>搵人打波 <span lang="en">Start a pick-up game</span></h1>
+    <p>注意：搵人打波並不代表預訂場地，最後仍需按現場情況而定</p>
     <nav>
-      <a href="index.html">地圖搵場</a>
-      <a href="post.html" aria-current="page">發起活動</a>
-      <a href="guide.html">街場指南</a>
+      <a href="index.html">主頁</a>
+      <a href="index.html?view=games">睇有咩波打</a>
+      <a href="index.html?view=courts">街場地圖</a>
+      <a href="post.html" aria-current="page">搵人打波</a>
+      <a href="guide.html">打波指南</a>
     </nav>
   </header>
 
   <main>
-    <form id="form" class="card form" novalidate>
-      <fieldset>
-        <legend>1｜揀球場 <span lang="en">Court</span></legend>
-        <label>地區 <span lang="en">District</span><select id="fCode" required></select></label>
-        <label>籃球場（只列有有效座標嘅場地）<span lang="en">Court</span><select id="fCourt" required></select></label>
-        <p class="fine" id="courtNote"></p>
-      </fieldset>
+    <!-- B：四頁向導。一頁一步，揀完自動去下一頁（冇「下一步」按钮），第 2–4 頁左下角有「上一步」 -->
+    <form id="form" class="card form wizard" novalidate>
 
-      <fieldset>
-        <legend>2｜幾時打 <span lang="en">When</span></legend>
-        <div class="row">
-          <label><input type="radio" name="intent" value="now" checked> 即刻開波（而家／一兩個鐘之內）</label>
-          <label><input type="radio" name="intent" value="planned"> 預先約波（將來某個日子）</label>
+      <section class="wpage" id="p1" data-page="1">
+        <h2 class="wtitle">1｜揀球場 <span lang="en">Court</span></h2>
+        <label>地區 <span lang="en">District</span><select id="fCode" required></select></label>
+        <label>場地（籃球場數量）<span lang="en">Venue (No. of courts)</span><select id="fCourt" required></select></label>
+        <p class="fine" id="courtNote"></p>
+      </section>
+
+      <section class="wpage" id="p2" data-page="2" hidden>
+        <h2 class="wtitle">2｜幾時打 <span lang="en">When</span></h2>
+        <div class="whenGrid">
+          <label class="whenCard" id="cardNow">
+            <input type="radio" name="intent" value="now">
+            <svg viewBox="0 0 64 64" aria-hidden="true">
+              <circle cx="32" cy="32" r="24"></circle>
+              <path d="M8 32h48M32 8v48"></path>
+              <path d="M15 15c8 8 8 26 0 34M49 15c-8 8-8 26 0 34"></path>
+              <rect x="17" y="25" width="30" height="15" rx="3" class="nowPlate"></rect>
+              <text x="32" y="36.5" text-anchor="middle" class="nowWord">NOW</text>
+            </svg>
+            即刻開波 <span lang="en">Ball now!</span>
+          </label>
+          <label class="whenCard" id="cardLater">
+            <input type="radio" name="intent" value="planned">
+            <svg viewBox="0 0 64 64" aria-hidden="true">
+              <circle cx="32" cy="36" r="22"></circle>
+              <path d="M32 24v12l9 6"></path>
+              <path d="M25 8h14M32 8v6"></path>
+              <path d="M50 18l5-5"></path>
+            </svg>
+            預先約波 <span lang="en">Ball later!</span>
+          </label>
         </div>
         <div id="plannedOnly" hidden>
           <div class="pair">
@@ -38,68 +61,66 @@
             <label>開始 <span lang="en">Start</span><input type="time" id="fStart" value="19:30"></label>
             <label>結束 <span lang="en">End</span><input type="time" id="fEnd" value="21:30"></label>
           </div>
-          <p class="fine">本版唔支援跨午夜活動；時間以香港時間（Asia/Hong_Kong）計算。</p>
+          <p class="fine">填齊日期同時間就會自動去下一頁。本版唔支援跨午夜活動；時間以香港時間（Asia/Hong_Kong）計算。</p>
         </div>
-        <p class="fine" id="nowNote">即刻開波嘅開始時間由伺服器喺你「送出」嗰一刻決定，唔使自己填。</p>
-      </fieldset>
+        <p class="fine" id="nowNote" hidden>即刻開波嘅開始時間由伺服器喺你「送出」嗰一刻決定，唔使自己填。</p>
+      </section>
 
-      <fieldset>
-        <legend>3｜你同幾多人，到了幾個 <span lang="en">Your group</span></legend>
-        <div class="row">
-          <label><input type="radio" name="presence" value="at_court" checked> 我已經喺場</label>
-          <label><input type="radio" name="presence" value="on_the_way"> 我喺路上</label>
-          <label><input type="radio" name="presence" value="not_yet"> 我未出發</label>
-        </div>
-        <div class="pair">
-          <label>玩法 <span lang="en">Format</span>
-            <select id="fFormat"><option value="3v3">3 對 3（共 6 人）</option><option value="4v4">4 對 4（共 8 人）</option></select>
-          </label>
-          <label>原有小組人數（包括你）<span lang="en">Group size</span>
-            <input type="number" id="fGroup" min="1" max="7" step="1" value="2" required>
-          </label>
-          <label>已經到咗幾個（可留空＝未知）<span lang="en">Already arrived</span>
-            <input type="number" id="fArrived" min="0" max="7" step="1">
-          </label>
-        </div>
-        <p class="count">目標 <b id="pvTarget">6</b> 人｜原有小組 <b id="pvGroup">2</b> 人｜發布時尚缺 <b id="pvNeed">4</b> 人</p>
-        <p class="fine">「未知」同「0 人到」係兩回事：留空就係未知，介面唔會當 0（J03、V04）。</p>
-      </fieldset>
+      <section class="wpage" id="p3" data-page="3" hidden>
+        <h2 class="wtitle">3｜人數 <span lang="en">Group size</span></h2>
+        <!-- 即刻開波：到場狀態＋玩法＋已經到咗幾個。預先約波：玩法＋有幾多人會黎 -->
+        <fieldset id="presenceBox">
+          <legend>到場狀態 <span lang="en">Arrival status</span></legend>
+          <div class="row">
+            <label><input type="radio" name="presence" value="at_court"> 我已經喺場</label>
+            <label><input type="radio" name="presence" value="not_yet"> 我仲未到</label>
+          </div>
+        </fieldset>
+        <label>玩法 <span lang="en">Format</span>
+          <select id="fFormat"><option value="3v3">3 對 3（共 6 人）</option><option value="4v4">4 對 4（共 8 人）</option></select>
+        </label>
+        <label id="arrivedBox">已經到咗幾個（未知可留空）<span lang="en">No. of people arrived</span>
+          <input type="number" id="fArrived" min="0" max="7" step="1">
+        </label>
+        <label id="joiningBox" hidden>有幾多人會黎 <span lang="en">No. of people joining</span>
+          <input type="number" id="fGroup" min="1" max="7" step="1" value="2" required>
+        </label>
+        <p class="count">目標 <b id="pvTarget">6</b> 人｜你哋有 <b id="pvGroup">2</b> 人｜發布時尚缺 <b id="pvNeed">4</b> 人</p>
+        <p class="fine">「未知」同「0 人到」係兩回事：留空就係未知，介面唔會當 0（J03、V04）。揀完會自動去下一頁；想填埋人數就即刻填，或者撳「上一步」返嚟。</p>
+      </section>
 
-      <fieldset>
-        <legend>4｜點樣打 <span lang="en">How</span></legend>
+      <section class="wpage" id="p4" data-page="4" hidden>
+        <h2 class="wtitle">4｜補充資料 <span lang="en">Additional information</span></h2>
         <div class="pair">
           <label>你的暱稱 <span lang="en">Nickname</span><input type="text" id="fNick" maxlength="30" required placeholder="例如 Kenton"></label>
           <label>強度 <span lang="en">Level</span>
             <select id="fSkill">
-              <option value="unspecified">唔設定</option>
+              <option value="unspecified">無所謂</option>
               <option value="casual" selected>輕鬆</option>
               <option value="intermediate">中等</option>
-              <option value="high_intensity">激烈</option>
+              <option value="high_intensity">進階</option>
             </select>
           </label>
         </div>
         <label class="chk2"><input type="checkbox" id="fBeginner" checked> 歡迎新手</label>
         <label>備註 <span lang="en">Note</span>
-          <textarea id="fNotes" rows="2" maxlength="500" placeholder="例如：有波、打贏留場、唔收錢"></textarea></label>
-        <p class="fine">備註請避免電話、電郵及其他敏感資料；你嘅暱稱會公開顯示。</p>
-      </fieldset>
+          <textarea id="fNotes" rows="2" maxlength="500" placeholder="例如：有波、只限女生"></textarea></label>
+        <p class="fine">備註請避免電話、電郵及其他敏感資料。</p>
+        <h3 class="wsub">場地資料 <span lang="en">Venue info</span></h3>
+        <p class="meta" id="venueAddr"></p>
+        <!-- 三行誠實字之一：未核實提醒（D08）保留一行細字，但唔再強制剔確認 -->
+        <p class="fine" id="venueCaveat"></p>
+      </section>
 
-      <fieldset id="ackBox" hidden>
-        <legend>5｜場地資料提醒 <span lang="en">Data caveat</span></legend>
-        <p class="meta" id="ackText"></p>
-        <label class="chk2"><input type="checkbox" id="fAck"> 我已閱讀呢個提醒（仍然未經過人工核實）</label>
-      </fieldset>
-
-      <p class="count" id="preview">預覽：—</p>
-      <button type="submit" class="primary">送出活動</button>
+      <p class="wfoot">
+        <button type="button" id="btnPrev" hidden>← 上一步 <span lang="en">Previous</span></button>
+        <span class="wstep" id="wStep" aria-live="polite">1 / 4</span>
+        <button type="submit" class="primary" id="btnSubmit" hidden>送出活動 <span lang="en">Post</span></button>
+      </p>
       <p id="msg" class="meta" role="status" aria-live="polite"></p>
+      <p class="count" id="preview">預覽：—</p>
     </form>
   </main>
-
-  <footer>
-    發布活動唔代表預留公共球場，仍需尊重現場跟隊安排（11 號 R03）。
-    目標人數（3v3=6、4v4=8）、到场與缺額一律由伺服器計算，客戶端唔可以覆寫。
-  </footer>
 
   <script src="post.js"></script>
 </body>

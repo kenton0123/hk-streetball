@@ -5,3 +5,5 @@ node_modules/
 hksar_18_district_boundary.json
 hksar_18_district_boundary.svg
 HK_Streetball_Handoff/
+# 課程 feedback 文件（binary，唔屬於公開 repo）
+*.docx

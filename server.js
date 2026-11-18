@@ -353,15 +353,14 @@ const fail = (res, status, code, message, fields) => res.status(status).json({
   error: { code, message, fields: fields || null }, meta: { server_time: new Date().toISOString() },
 });
 
-// 04：無效座標、已核實關閉、已核實不適用 → 唔准發布；其他待核實 → 要用戶確認已閱讀
-function publishCheck(court, acknowledged) {
+// 04：無效座標、已核實關閉、已核實不適用 → 唔准發布
+// Round 1 改動：待核實場地唔再強制剔「我已閱讀」，改為喺表單第 4 頁顯示一行細字提醒（D08 由「確認閱讀」降為「已提示」）
+function publishCheck(court) {
   if (!court) return { block: 404, msg: "場地唔存在", field: { court_id: "not_found" } };
   if (court.lng === null || court.lat === null)
     return { block: 403, msg: "呢個場地無有效座標，唔可以發布活動（D02）", field: { court_id: "invalid_coordinates" } };
   if (court.oper === "closed" || court.suit === "not_suitable")
     return { block: 403, msg: "呢個場地已核實為關閉或不適用，唔准發布（D07）", field: { court_id: "not_publishable" } };
-  if (!acknowledged)
-    return { warn: true, msg: "場地資料未經過人工核實，發布前請先確認已閱讀提醒（D08）", field: { acknowledged_unverified_court: "required" } };
   return {};
 }
 
@@ -524,9 +523,8 @@ async function createGame(req, res) {
   if (!["at_court", "on_the_way", "not_yet"].includes(b.organizer_presence)) fields.organizer_presence = "at_court / on_the_way / not_yet";
   if (!["unspecified", "casual", "intermediate", "high_intensity"].includes(b.skill_level)) fields.skill_level = "unspecified / casual / intermediate / high_intensity";
   const court = courtById.get(b.court_id);
-  const pc = publishCheck(court, b.acknowledged_unverified_court === true);
+  const pc = publishCheck(court);
   if (pc.block) return fail(res, pc.block, "court_not_publishable", pc.msg, pc.field);
-  if (pc.warn) return fail(res, 422, "acknowledgement_required", pc.msg, pc.field);
   if (Object.keys(fields).length) return fail(res, 422, "invalid", "欄位唔正確", fields);
 
   const T = TARGET[format];
@@ -576,7 +574,7 @@ async function createGame(req, res) {
     skill_level: b.skill_level, beginner_friendly: b.beginner_friendly === true, notes,
     phase: "scheduled", created_at: now.toISOString(), updated_at: now.toISOString(),
     organizer_confirmed_at: now.toISOString(), recruiting_valid_until: validUntil,
-    acknowledged_unverified_court: true, is_demo: b.is_demo === true,
+    acknowledged_unverified_court: b.acknowledged_unverified_court === true, is_demo: b.is_demo === true,
     version: 1, seats_left: T - G, signups: [], manage_token: mt,
   };
   await games.insert(doc);
@@ -744,8 +742,11 @@ async function joinGame(req, res) {
     const why = { full: "名額已經搶完（已滿唔等於已開始）", started: "已經開始，唔再招募", expired: "活動已過期，請參加新活動", cancelled: "活動已取消", ended: "活動已完結" };
     return fail(res, 409, "not_joinable", why[d.status] || "而家唔接受加入：" + d.status, { status: d.status });
   }
-  const nick = String((req.body || {}).participant_nickname ?? "").trim();
-  if (nick.length < 1 || nick.length > MAX_NICK) return fail(res, 422, "invalid", "暱稱要 1–30 字元", { participant_nickname: `1–${MAX_NICK} 字元` });
+  // C.4（Round 1）：「我會到」唔再問暱稱，所以 participant_nickname 變成可選；
+  // 有傳就照舊驗長度，冇傳就存 null（參加者對其他人本來就係匿名 —— A03）
+  const rawNick = String((req.body || {}).participant_nickname ?? "").trim();
+  if (rawNick.length > MAX_NICK) return fail(res, 422, "invalid", "暱稱要 1–30 字元", { participant_nickname: `1–${MAX_NICK} 字元` });
+  const nick = rawNick || null;
   const eta = (req.body || {}).estimated_arrival_at;
   let etaIso = null;
   if (eta !== undefined && eta !== null && eta !== "") {
