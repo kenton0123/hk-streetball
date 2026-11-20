@@ -502,8 +502,14 @@ function gameCard(g) {
       ${g.notes ? '<p class="note">' + esc(g.notes) + "</p>" : ""}
       <p class="meta">發起人 ${esc(g.organizer_nickname)}（${g.organizer_presence === "at_court" ? "已到" : "未到"}）
         · 強度 ${esc(SKILL_ZH[g.skill_level] || g.skill_level)}</p>
-      <p class="act">${buttonsFor(g, mine, isOrganizer)}</p>`;
+      ${actLine(g, mine, isOrganizer)}`;
   return card;
+}
+
+// 冇按鈕就唔好喺張卡尾加字：呢度只會列招募中／已滿／進行中，寫「已結束」係假資訊
+function actLine(g, mine, isOrganizer) {
+  const html = buttonsFor(g, mine, isOrganizer);
+  return html ? `<p class="act">${html}</p>` : "";
 }
 
 function buttonsFor(g, mine, isOrganizer) {
@@ -522,7 +528,7 @@ function buttonsFor(g, mine, isOrganizer) {
     if (g.status === "started") b.push(`<button data-act="end" data-game="${g.game_id}">完結</button>`);
     if (g.status === "recruiting" || g.status === "full") b.push(`<button data-act="cancel" data-game="${g.game_id}">取消</button>`);
   }
-  return b.join("") || '<span class="meta">呢個活動已結束，詳情可讀</span>';
+  return b.join("");
 }
 
 // ---- 動作：全部去 server 做，本機只記自己嘅憑證 ----
